@@ -1,0 +1,77 @@
+name: f-signals2
+on:
+  push:
+    paths:
+      - .github/workflows/f-signals2.yml
+  workflow_dispatch:
+
+jobs:
+  s7g_cancel_trapped_shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: trapper
+        background: true
+        run: source ./scripts/trapper.sh /tmp/s7g.log
+      - id: settle
+        run: |
+          sleep 3
+          cat /tmp/s7g.log
+          echo "cancel issued after $(date -u +%T.%3N)"
+      - id: cancel_trapper
+        cancel: trapper
+      - id: watch
+        if: always()
+        run: |
+          echo "watch start $(date -u +%T.%3N) trapper.outcome='${{ steps.trapper.outcome }}'"
+          bash ./scripts/watch.sh /tmp/s7g.log 20
+
+  s5d_bg_timeout_trapped_shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: trapper
+        background: true
+        timeout-minutes: 1
+        run: source ./scripts/trapper.sh /tmp/s5d.log
+      - id: wait_trapper
+        wait: trapper
+      - id: watch
+        if: always()
+        run: |
+          echo "watch start $(date -u +%T.%3N) trapper.outcome='${{ steps.trapper.outcome }}'"
+          bash ./scripts/watch.sh /tmp/s5d.log 20
+
+  s5e_fg_timeout_trapped_shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: trapper
+        timeout-minutes: 1
+        run: source ./scripts/trapper.sh /tmp/s5e.log
+      - id: watch
+        if: always()
+        run: |
+          echo "watch start $(date -u +%T.%3N) trapper.outcome='${{ steps.trapper.outcome }}'"
+          bash ./scripts/watch.sh /tmp/s5e.log 20
+
+  s11b_job_timeout_trapped_shells:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: bg_trapper
+        background: true
+        run: source ./scripts/trapper.sh /tmp/s11b-bg.log
+      - id: fg_trapper
+        run: source ./scripts/trapper.sh /tmp/s11b-fg.log
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always $(date -u +%T.%3N) job.status=${{ job.status }}"
+          bash ./scripts/watch.sh /tmp/s11b-bg.log 3
+          bash ./scripts/watch.sh /tmp/s11b-fg.log 3

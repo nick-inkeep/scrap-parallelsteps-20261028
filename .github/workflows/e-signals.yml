@@ -1,0 +1,93 @@
+name: e-signals
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  s7d_cancel_probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: probe_bg
+        background: true
+        run: ./scripts/probe.sh /tmp/s7d.log
+      - id: settle
+        run: |
+          sleep 3
+          ./scripts/report.sh /tmp/s7d.log
+          echo "cancel issued after $(date -u +%T.%3N)"
+      - id: cancel_probe
+        cancel: probe_bg
+      - id: report_now
+        if: always()
+        run: |
+          echo "report_now $(date -u +%T.%3N) probe.outcome='${{ steps.probe_bg.outcome }}' probe.conclusion='${{ steps.probe_bg.conclusion }}'"
+          ./scripts/report.sh /tmp/s7d.log
+      - id: report_later
+        if: always()
+        run: |
+          sleep 15
+          ./scripts/report.sh /tmp/s7d.log
+
+  s5b_bg_timeout_probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: probe_bg
+        background: true
+        timeout-minutes: 1
+        run: ./scripts/probe.sh /tmp/s5b.log
+      - id: wait_probe
+        wait: probe_bg
+      - id: report_now
+        if: always()
+        run: |
+          echo "report_now $(date -u +%T.%3N) probe.outcome='${{ steps.probe_bg.outcome }}' probe.conclusion='${{ steps.probe_bg.conclusion }}'"
+          ./scripts/report.sh /tmp/s5b.log
+      - id: report_later
+        if: always()
+        run: |
+          sleep 15
+          ./scripts/report.sh /tmp/s5b.log
+
+  s5c_fg_timeout_probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: probe_fg
+        timeout-minutes: 1
+        run: ./scripts/probe.sh /tmp/s5c.log
+      - id: report_now
+        if: always()
+        run: |
+          echo "report_now $(date -u +%T.%3N) probe.outcome='${{ steps.probe_fg.outcome }}' probe.conclusion='${{ steps.probe_fg.conclusion }}'"
+          ./scripts/report.sh /tmp/s5c.log
+      - id: report_later
+        if: always()
+        run: |
+          sleep 15
+          ./scripts/report.sh /tmp/s5c.log
+
+  s7e_exec_service_cancel:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: svc
+        background: true
+        run: exec python3 -m http.server 8002
+      - id: probe
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8002/; then echo "server answered on attempt $i at $(date -u +%T.%3N)"; exit 0; fi
+            sleep 0.5
+          done
+          exit 1
+      - id: cancel_svc
+        cancel: svc
+      - id: after_cancel
+        if: always()
+        run: |
+          echo "after_cancel $(date -u +%T.%3N) svc.outcome='${{ steps.svc.outcome }}' svc.conclusion='${{ steps.svc.conclusion }}' job.status=${{ job.status }}"
+          if curl -fsS -o /dev/null --max-time 2 http://127.0.0.1:8002/; then echo "server STILL answering"; else echo "server gone"; fi

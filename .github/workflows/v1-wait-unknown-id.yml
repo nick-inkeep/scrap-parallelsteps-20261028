@@ -1,0 +1,13 @@
+name: v1-wait-unknown-id
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  v1:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg
+        background: true
+        run: sleep 2
+      - id: wait_nope
+        wait: does_not_exist

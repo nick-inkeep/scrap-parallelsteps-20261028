@@ -1,0 +1,14 @@
+name: v2-wait-with-if
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  v2:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg
+        background: true
+        run: sleep 2
+      - id: wait_if
+        if: always()
+        wait: bg

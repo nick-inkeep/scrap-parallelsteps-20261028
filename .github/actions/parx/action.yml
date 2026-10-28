@@ -1,0 +1,12 @@
+name: parx
+description: composite action declaring a parallel group (docs say not allowed)
+runs:
+  using: composite
+  steps:
+    - parallel:
+        - id: inner_p1
+          shell: bash
+          run: echo "inner_p1 $(date -u +%T.%3N)"
+        - id: inner_p2
+          shell: bash
+          run: echo "inner_p2 $(date -u +%T.%3N)"

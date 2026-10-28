@@ -1,0 +1,44 @@
+name: d-composite
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  s13a:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: before
+        run: echo "before composite $(date -u +%T.%3N)"
+      - id: comp_bg_inside
+        uses: ./.github/actions/bgx
+      - id: after_always
+        if: always()
+        run: echo "after_always $(date -u +%T.%3N) job.status=${{ job.status }} comp.outcome='${{ steps.comp_bg_inside.outcome }}'"
+
+  s13b:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: comp_parallel_inside
+        uses: ./.github/actions/parx
+      - id: after_always
+        if: always()
+        run: echo "after_always $(date -u +%T.%3N) job.status=${{ job.status }} comp.outcome='${{ steps.comp_parallel_inside.outcome }}'"
+
+  s13c:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: comp_as_bg
+        background: true
+        uses: ./.github/actions/plain
+      - id: fg
+        run: echo "fg while composite runs in background $(date -u +%T.%3N)"
+      - id: wait_comp
+        wait: comp_as_bg
+      - id: after
+        run: echo "after $(date -u +%T.%3N) job.status=${{ job.status }} comp.outcome='${{ steps.comp_as_bg.outcome }}'"

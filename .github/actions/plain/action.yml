@@ -1,0 +1,14 @@
+name: plain
+description: ordinary composite action, run as a background step from the workflow
+runs:
+  using: composite
+  steps:
+    - id: inner_a
+      shell: bash
+      run: |
+        echo "plain inner_a start $(date -u +%T.%3N)"
+        sleep 8
+        echo "plain inner_a end $(date -u +%T.%3N)"
+    - id: inner_b
+      shell: bash
+      run: echo "plain inner_b $(date -u +%T.%3N)"

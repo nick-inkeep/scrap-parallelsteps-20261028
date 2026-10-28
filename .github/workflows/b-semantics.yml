@@ -1,0 +1,164 @@
+name: b-semantics
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  s5:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_timeout
+        background: true
+        timeout-minutes: 1
+        run: |
+          trap 'echo "bg_timeout got TERM at $(date -u +%T.%3N)"; exit 143' TERM
+          trap 'echo "bg_timeout got INT at $(date -u +%T.%3N)"; exit 130' INT
+          echo "bg_timeout start $(date -u +%T.%3N)"
+          sleep 120 &
+          wait $!
+          echo "bg_timeout finished normally $(date -u +%T.%3N)"
+      - id: fg
+        run: |
+          echo "fg ran $(date -u +%T.%3N)"
+      - id: wait_bg
+        wait: bg_timeout
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_timeout.outcome }}' bg.conclusion='${{ steps.bg_timeout.conclusion }}' wait.outcome='${{ steps.wait_bg.outcome }}' wait.conclusion='${{ steps.wait_bg.conclusion }}'"
+
+  s6:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_coe
+        background: true
+        continue-on-error: true
+        run: |
+          echo "bg_coe start $(date -u +%T.%3N)"
+          sleep 5
+          echo "bg_coe exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: before_wait
+        run: |
+          sleep 10
+          echo "before_wait $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_coe.outcome }}' bg.conclusion='${{ steps.bg_coe.conclusion }}'"
+      - id: wait_bg
+        wait: bg_coe
+      - id: after_wait
+        run: |
+          echo "after_wait $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_coe.outcome }}' bg.conclusion='${{ steps.bg_coe.conclusion }}' wait.outcome='${{ steps.wait_bg.outcome }}' wait.conclusion='${{ steps.wait_bg.conclusion }}'"
+
+  s7:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: svc
+        background: true
+        run: |
+          echo "svc start $(date -u +%T.%3N)"
+          python3 -m http.server 8000
+      - id: probe
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8000/; then
+              echo "server answered on attempt $i at $(date -u +%T.%3N)"
+              exit 0
+            fi
+            sleep 0.5
+          done
+          echo "server never answered"
+          exit 1
+      - id: cancel_svc
+        cancel: svc
+      - id: after_cancel
+        if: always()
+        run: |
+          echo "after_cancel $(date -u +%T.%3N) job.status=${{ job.status }} svc.outcome='${{ steps.svc.outcome }}' svc.conclusion='${{ steps.svc.conclusion }}' cancel.outcome='${{ steps.cancel_svc.outcome }}' cancel.conclusion='${{ steps.cancel_svc.conclusion }}'"
+          if curl -fsS -o /dev/null --max-time 2 http://127.0.0.1:8000/; then echo "server STILL answering"; else echo "server gone"; fi
+
+  s7b:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: stubborn
+        background: true
+        run: |
+          trap 'echo "stubborn got TERM at $(date -u +%T.%3N), ignoring"' TERM
+          echo "stubborn start $(date -u +%T.%3N)"
+          while true; do sleep 1; done
+      - id: fg
+        run: |
+          sleep 5
+          echo "fg done $(date -u +%T.%3N)"
+      - id: cancel_stubborn
+        cancel: stubborn
+      - id: after_cancel
+        if: always()
+        run: |
+          echo "after_cancel $(date -u +%T.%3N) job.status=${{ job.status }} stubborn.outcome='${{ steps.stubborn.outcome }}' stubborn.conclusion='${{ steps.stubborn.conclusion }}'"
+          pgrep -af 'sleep 1' || echo "no sleep loop left"
+
+  s7c:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - id: svc_forgotten
+        background: true
+        run: |
+          echo "svc_forgotten start $(date -u +%T.%3N)"
+          python3 -m http.server 8001
+      - id: probe
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8001/; then
+              echo "server answered on attempt $i at $(date -u +%T.%3N)"
+              exit 0
+            fi
+            sleep 0.5
+          done
+          exit 1
+      - id: last_fg
+        run: |
+          echo "last foreground step $(date -u +%T.%3N); no cancel, no wait"
+
+  s8:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_out
+        background: true
+        run: |
+          echo "x=1" >> "$GITHUB_OUTPUT"
+          echo "Y=2" >> "$GITHUB_ENV"
+          echo "/opt/s8-added-path" >> "$GITHUB_PATH"
+          echo "bg_out wrote output/env/path at $(date -u +%T.%3N)"
+          sleep 10
+          echo "bg_out end $(date -u +%T.%3N)"
+      - id: before_wait
+        run: |
+          sleep 3
+          echo "before_wait $(date -u +%T.%3N) x='${{ steps.bg_out.outputs.x }}' Y='${Y:-<unset>}' env.Y='${{ env.Y }}'"
+          echo "before_wait PATH=$PATH"
+      - id: wait_bg
+        wait: bg_out
+      - id: after_wait
+        run: |
+          echo "after_wait $(date -u +%T.%3N) x='${{ steps.bg_out.outputs.x }}' Y='${Y:-<unset>}' env.Y='${{ env.Y }}'"
+          echo "after_wait PATH=$PATH"
+
+  s9:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_annot
+        background: true
+        run: |
+          echo "::error title=bg::boom"
+          echo "::warning::w"
+          echo "::notice title=bgnotice::n"
+          exit 0
+      - id: fg_annot
+        run: |
+          echo "::error title=fg::fgboom"
+          echo "::warning::fgw"
+      - id: wait_bg
+        wait: bg_annot
+      - id: after
+        run: |
+          echo "after ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_annot.outcome }}'"

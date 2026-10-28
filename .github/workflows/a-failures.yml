@@ -1,0 +1,176 @@
+name: a-failures
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  s1:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_fail
+        background: true
+        run: |
+          echo "bg_fail start $(date -u +%T.%3N)"
+          sleep 10
+          echo "bg_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: fg_sleep
+        run: |
+          echo "fg_sleep start $(date -u +%T.%3N)"
+          sleep 20
+          echo "fg_sleep end $(date -u +%T.%3N)"
+      - id: pre_wait_probe
+        if: always()
+        run: |
+          echo "pre_wait_probe $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}' bg.conclusion='${{ steps.bg_fail.conclusion }}'"
+      - id: wait_bg
+        wait: bg_fail
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}' bg.conclusion='${{ steps.bg_fail.conclusion }}' wait.outcome='${{ steps.wait_bg.outcome }}' wait.conclusion='${{ steps.wait_bg.conclusion }}'"
+      - id: after_default
+        run: |
+          echo "after_default ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+
+  s15:
+    needs: s1
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - id: read_needs
+        run: |
+          echo "needs.s1.result=${{ needs.s1.result }}"
+
+  s2:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_fail
+        background: true
+        run: |
+          echo "bg_fail start $(date -u +%T.%3N)"
+          sleep 10
+          echo "bg_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: fg1
+        run: |
+          echo "fg1 start $(date -u +%T.%3N) job.status=${{ job.status }}"
+          sleep 20
+          echo "fg1 end $(date -u +%T.%3N)"
+      - id: fg2
+        run: |
+          echo "fg2 ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}'"
+
+  s2b:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_late_fail
+        background: true
+        run: |
+          echo "bg_late_fail start $(date -u +%T.%3N)"
+          sleep 30
+          echo "bg_late_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: fg_short
+        run: |
+          echo "fg_short start $(date -u +%T.%3N)"
+          sleep 5
+          echo "fg_short end $(date -u +%T.%3N)"
+
+  s3:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_fail
+        background: true
+        run: |
+          echo "bg_fail start $(date -u +%T.%3N)"
+          sleep 5
+          echo "bg_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: pad10
+        run: |
+          echo "pad10 start $(date -u +%T.%3N)"
+          sleep 10
+      - id: t10_default
+        run: |
+          echo "t10_default ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}'"
+      - id: t10_failure
+        if: failure()
+        run: |
+          echo "t10_failure ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+      - id: pad20
+        if: always()
+        run: |
+          echo "pad20 start $(date -u +%T.%3N)"
+          sleep 10
+      - id: t20_default
+        run: |
+          echo "t20_default ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}'"
+      - id: t20_failure
+        if: failure()
+        run: |
+          echo "t20_failure ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+      - id: wait_all
+        wait-all:
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_fail.outcome }}'"
+      - id: after_failure
+        if: failure()
+        run: |
+          echo "after_failure ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+
+  s4a:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_sleep
+        background: true
+        run: |
+          trap 'echo "bg_sleep got TERM at $(date -u +%T.%3N)"; exit 143' TERM
+          trap 'echo "bg_sleep got INT at $(date -u +%T.%3N)"; exit 130' INT
+          echo "bg_sleep start $(date -u +%T.%3N)"
+          sleep 60 &
+          wait $!
+          echo "bg_sleep finished normally $(date -u +%T.%3N)"
+      - id: fg_fail
+        run: |
+          echo "fg_fail start $(date -u +%T.%3N)"
+          sleep 5
+          echo "fg_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: fg_default
+        run: |
+          echo "fg_default ran $(date -u +%T.%3N)"
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_sleep.outcome }}'"
+
+  s4b:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: bg_sleep
+        background: true
+        run: |
+          trap 'echo "bg_sleep got TERM at $(date -u +%T.%3N)"; exit 143' TERM
+          trap 'echo "bg_sleep got INT at $(date -u +%T.%3N)"; exit 130' INT
+          echo "bg_sleep start $(date -u +%T.%3N)"
+          sleep 60 &
+          wait $!
+          echo "bg_sleep finished normally $(date -u +%T.%3N)"
+      - id: fg_fail
+        run: |
+          echo "fg_fail start $(date -u +%T.%3N)"
+          sleep 5
+          echo "fg_fail exiting 1 at $(date -u +%T.%3N)"
+          exit 1
+      - id: fg_default
+        run: |
+          echo "fg_default ran $(date -u +%T.%3N)"
+      - id: wait_bg
+        wait: bg_sleep
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} bg.outcome='${{ steps.bg_sleep.outcome }}' wait.outcome='${{ steps.wait_bg.outcome }}'"

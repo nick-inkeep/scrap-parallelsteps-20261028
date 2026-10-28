@@ -1,0 +1,172 @@
+name: c-structure
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  s10:
+    runs-on: ubuntu-24.04
+    steps:
+      - parallel:
+          - id: p5
+            run: |
+              echo "p5 start $(date -u +%T.%3N)"
+              sleep 5
+              echo "p5 end $(date -u +%T.%3N)"
+          - id: p10_fail
+            run: |
+              echo "p10_fail start $(date -u +%T.%3N)"
+              sleep 10
+              echo "p10_fail exiting 1 at $(date -u +%T.%3N)"
+              exit 1
+          - id: p15
+            run: |
+              echo "p15 start $(date -u +%T.%3N)"
+              sleep 15
+              echo "p15 end $(date -u +%T.%3N)"
+      - id: after_default
+        run: |
+          echo "after_default ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }} p5='${{ steps.p5.outcome }}' p10='${{ steps.p10_fail.outcome }}' p15='${{ steps.p15.outcome }}'"
+
+  s11:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - id: bg300
+        background: true
+        run: |
+          trap 'echo "bg300 got TERM at $(date -u +%T.%3N)"; exit 143' TERM
+          trap 'echo "bg300 got INT at $(date -u +%T.%3N)"; exit 130' INT
+          echo "bg300 start $(date -u +%T.%3N)"
+          sleep 300 &
+          wait $!
+      - id: fg300
+        run: |
+          trap 'echo "fg300 got TERM at $(date -u +%T.%3N)"; exit 143' TERM
+          trap 'echo "fg300 got INT at $(date -u +%T.%3N)"; exit 130' INT
+          echo "fg300 start $(date -u +%T.%3N)"
+          sleep 300 &
+          wait $!
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always ran $(date -u +%T.%3N) job.status=${{ job.status }}"
+
+  s11_down:
+    needs: s11
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - id: read_needs
+        run: |
+          echo "needs.s11.result=${{ needs.s11.result }}"
+
+  s12:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: cache_bg
+        background: true
+        uses: actions/cache@v4
+        with:
+          path: s12-cache
+          key: s12-${{ github.run_id }}-${{ github.run_attempt }}
+      - id: bg_long
+        background: true
+        run: |
+          echo "bg_long start $(date -u +%T.%3N)"
+          sleep 30
+          echo "bg_long end $(date -u +%T.%3N)"
+      - id: make_file
+        run: |
+          sleep 3
+          mkdir -p s12-cache
+          echo "data $(date -u +%T.%3N)" > s12-cache/f.txt
+          echo "make_file wrote s12-cache/f.txt at $(date -u +%T.%3N)"
+      - id: last_fg
+        run: |
+          echo "last_fg $(date -u +%T.%3N) cache-hit='${{ steps.cache_bg.outputs.cache-hit }}' cache.outcome='${{ steps.cache_bg.outcome }}'"
+
+  s14:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: b01
+        background: true
+        run: |
+          echo "b01 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b01 end $(date -u +%T.%3N)"
+      - id: b02
+        background: true
+        run: |
+          echo "b02 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b02 end $(date -u +%T.%3N)"
+      - id: b03
+        background: true
+        run: |
+          echo "b03 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b03 end $(date -u +%T.%3N)"
+      - id: b04
+        background: true
+        run: |
+          echo "b04 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b04 end $(date -u +%T.%3N)"
+      - id: b05
+        background: true
+        run: |
+          echo "b05 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b05 end $(date -u +%T.%3N)"
+      - id: b06
+        background: true
+        run: |
+          echo "b06 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b06 end $(date -u +%T.%3N)"
+      - id: b07
+        background: true
+        run: |
+          echo "b07 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b07 end $(date -u +%T.%3N)"
+      - id: b08
+        background: true
+        run: |
+          echo "b08 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b08 end $(date -u +%T.%3N)"
+      - id: b09
+        background: true
+        run: |
+          echo "b09 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b09 end $(date -u +%T.%3N)"
+      - id: b10
+        background: true
+        run: |
+          echo "b10 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b10 end $(date -u +%T.%3N)"
+      - id: b11
+        background: true
+        run: |
+          echo "b11 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b11 end $(date -u +%T.%3N)"
+      - id: b12
+        background: true
+        run: |
+          echo "b12 start $(date -u +%T.%3N)"
+          sleep 15
+          echo "b12 end $(date -u +%T.%3N)"
+      - id: wait_all
+        wait-all:
+      - id: after
+        run: |
+          echo "after wait-all $(date -u +%T.%3N)"

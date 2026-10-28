@@ -1,0 +1,15 @@
+name: bgx
+description: composite action declaring a background step (docs say not allowed)
+runs:
+  using: composite
+  steps:
+    - id: inner_bg
+      shell: bash
+      background: true
+      run: |
+        echo "inner_bg start $(date -u +%T.%3N)"
+        sleep 3
+        echo "inner_bg end $(date -u +%T.%3N)"
+    - id: inner_fg
+      shell: bash
+      run: echo "inner_fg ran $(date -u +%T.%3N)"

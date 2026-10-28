@@ -1,0 +1,26 @@
+name: g-control
+on:
+  workflow_dispatch:
+
+jobs:
+  s11c_fg_only_job_timeout:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - id: checkout
+        uses: actions/checkout@v4
+      - id: fg_trapper
+        run: source ./scripts/trapper.sh /tmp/s11c.log
+      - id: after_always
+        if: always()
+        run: |
+          echo "after_always $(date -u +%T.%3N) job.status=${{ job.status }}"
+          bash ./scripts/watch.sh /tmp/s11c.log 3
+
+  s11c_down:
+    needs: s11c_fg_only_job_timeout
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - id: read_needs
+        run: echo "needs.s11c_fg_only_job_timeout.result=${{ needs.s11c_fg_only_job_timeout.result }}"
